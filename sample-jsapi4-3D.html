@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no"/>
+    <title>Floorfilter - JSAPI4 - 3D</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.11/esri/css/main.css">
+    <link rel="stylesheet" href="./floorfilter/style/main.css">
+    <style>
+      html, body, #map {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #floorfilter {
+        position: absolute;
+        top: 20px;
+        left: 100px;
+      }
+    </style>
+    <script>
+      var dojoConfig = {
+        async: true,
+        packages: [
+          {
+            name: "floorfilter",
+            location: location.pathname.replace(/\/[^/]*$/,"") + "/floorfilter"
+          }
+        ]
+      };
+    </script>
+    <script src="https://js.arcgis.com/4.11/"></script>
+
+    <script>
+      require([
+        "esri/portal/Portal",
+        "esri/WebScene",
+        "esri/views/SceneView",
+        "esri/config",
+        "esri/widgets/Expand",
+        "esri/widgets/LayerList",
+        "floorfilter/FloorFilter",
+        "dojo/domReady!"
+      ], function(
+        Portal,
+        WebScene,
+        SceneView,
+        esriConfig,
+        Expand,
+        LayerList,
+        FloorFilter) {
+
+        var portalUrl = "https://indoorsportal2.esri.com/portal";
+        var facilitiesUrl = "https://indoorsportal2.esri.com/arcgis/rest/services/Hosted/Redlands_AIIM_1_1_FeatureService_WFL1/FeatureServer/0";
+        var levelsUrl = "https://indoorsportal2.esri.com/arcgis/rest/services/Hosted/Redlands_AIIM_1_1_FeatureService_WFL1/FeatureServer/8";
+        var websceneId = "389ded686d344e5084a5b2102463bc9e";
+
+        esriConfig.portalUrl = portalUrl;
+        var portal = new Portal({
+          url: portalUrl
+        });
+        portal.load().then(function() {
+          var map = new WebScene({
+            portalItem: {id: websceneId}
+          });
+          map.load();
+          var view = new SceneView({
+            container: "map",
+            map: map
+          });
+
+          var layerList = new LayerList({view: view});
+          var layerListExpand = new Expand({
+            view: view,
+            content: layerList
+          });
+          view.ui.add(layerListExpand,"top-left");
+
+          var floorFilter = new FloorFilter({
+            view: view,
+            facilitiesUrl: facilitiesUrl,
+            levelsUrl: levelsUrl
+          },"floorfilter");
+
+        });
+      });
+    </script>
+
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="floorfilter"></div>
+  </body>
+</html>

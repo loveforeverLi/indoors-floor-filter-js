@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no"/>
+    <title>Floorfilter - JSAPI4 - 2D</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.11/esri/css/main.css">
+    <link rel="stylesheet" href="./floorfilter/style/main.css">
+    <style>
+      html, body, #map {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #floorfilter {
+        position: absolute;
+        top: 20px;
+        left: 100px;
+      }
+    </style>
+    <script>
+      var dojoConfig = {
+        async: true,
+        packages: [
+          {
+            name: "floorfilter",
+            location: location.pathname.replace(/\/[^/]*$/,"") + "/floorfilter"
+          }
+        ]
+      };
+    </script>
+    <script src="https://js.arcgis.com/4.11/"></script>
+
+    <script>
+      require([
+        "esri/portal/Portal",
+        "esri/WebMap",
+        "esri/views/MapView",
+        "esri/config",
+        "esri/widgets/Expand",
+        "esri/widgets/LayerList",
+        "floorfilter/FloorFilter",
+        "dojo/domReady!"
+      ], function(
+        Portal,
+        WebMap,
+        MapView,
+        esriConfig,
+        Expand,
+        LayerList,
+        FloorFilter) {
+
+        var portalUrl = "https://indoorsportal2.esri.com/portal";
+        //var webmapId = "b95a6f5169b0461787c6c3d5c01c8552"; // fs
+        //var webmapId = "ce8e7241ead34e06bfa4082342e87d51"; //fs
+        var webmapId = "18f0da0feaa14a68a4a55605a63c8799"; // ms
+        //var webmapId = "beb205a97a6245739704cee0ea957d84"; // ms
+
+        esriConfig.portalUrl = portalUrl;
+        var portal = new Portal({
+          url: portalUrl
+        });
+        portal.load().then(function() {
+          var map = new WebMap({
+            portalItem: {id: webmapId}
+          });
+          map.load();
+          var view = new MapView({
+            container: "map",
+            map: map
+          });
+
+          var layerList = new LayerList({view: view});
+          var layerListExpand = new Expand({
+            view: view,
+            content: layerList
+          });
+          view.ui.add(layerListExpand,"top-left");
+
+          var floorFilter = new FloorFilter({
+            view: view
+          },"floorfilter");
+
+        });
+      });
+    </script>
+
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="floorfilter"></div>
+  </body>
+</html>

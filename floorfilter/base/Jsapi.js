@@ -1,0 +1,76 @@
+define(["dojo/_base/declare"],
+function(declare) {
+
+  const Jsapi = declare(null, {
+
+    context: null,
+    isV3: false,
+    isV4: false,
+
+    clearFacilityHighlight: function(task) {
+      throw new Error("Jsapi::clearFacilityHighlight must be inplemented by sub-class.");
+    },
+
+    destroy: function() {
+    },
+
+    flattenSubLayers: function(task,mapServiceLayer) {
+      throw new Error("Jsapi::flattenSubLayers must be inplemented by sub-class.");
+    },
+
+    getLayerDefinitionExpression: function(task,layer) {
+      throw new Error("Jsapi::getLayerDefinitionExpression must be inplemented by sub-class.");
+    },
+
+    getLayers: function(task) {
+      throw new Error("Jsapi::getLayers must be inplemented by sub-class.");
+    },
+
+    is3D: function() {
+      return false;
+    },
+
+    isFeatureLayer: function(task,layer) {
+      throw new Error("Jsapi::isFeatureLayer must be inplemented by sub-class.");
+    },
+
+    isMapServiceLayer: function(task,layer) {
+      throw new Error("Jsapi::isMapServiceLayer must be inplemented by sub-class.");
+    },
+
+    queryLayer: function(task,url,queryProps) {
+      throw new Error("Jsapi::queryLayer must be inplemented by sub-class.");
+    },
+
+    setLayerDefinitionExpression: function(task,layer,expression) {
+      throw new Error("Jsapi::setLayerDefinitionExpression must be inplemented by sub-class.");
+    },
+
+    waitForLayer: function(task,layer) {
+      throw new Error("Jsapi::waitForLayer must be inplemented by sub-class.");
+    },
+
+    waitForMap: function(task) {
+      throw new Error("Jsapi::waitForMap must be inplemented by sub-class.");
+    },
+
+    waitForMapService: function(task,layer) {
+      throw new Error("Jsapi::waitForMapService must be inplemented by sub-class.");
+    },
+
+    waitForSubLayers: function(task,mapServiceInfo) {
+      throw new Error("Jsapi::waitForSubLayers must be inplemented by sub-class.");
+    },
+
+    watchFacilityShells: function() {
+      throw new Error("Jsapi::watchFacilityShells must be inplemented by sub-class.");
+    },
+
+    zoomToFeature: function(task,feature) {
+      throw new Error("Jsapi::zoomToFacility must be inplemented by sub-class.");
+    }
+
+  });
+
+  return Jsapi;
+});
