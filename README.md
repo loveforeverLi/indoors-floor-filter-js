@@ -102,8 +102,8 @@ The `properties` object must include a `map`; other properties are optional.
             FloorFilter) {
 
                 // Your ArcGIS Indoors web map 
-                var portalUrl = "https://indoorsportal2.esri.com/portal"; // the web map's hosting portal URL; example: https://myPortal/portal 
-                var webmapId = "18f0da0feaa14a68a4a55605a63c8799"; // the web map's item id
+                var portalUrl = ""; // the web map's hosting portal URL; example: https://myPortal/portal 
+                var webmapId = ""; // the web map's item id
 
                 arcgisUtils.arcgisUrl = portalUrl + "/sharing/rest/content/items/";
                 arcgisUtils.createMap(webmapId, "map").then(function (response) {
