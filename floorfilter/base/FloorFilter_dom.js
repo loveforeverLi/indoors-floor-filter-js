@@ -251,7 +251,7 @@ function(declare) {
 
     _renderLevel: function(parentNode,levelData,isLast) {
       const activeClass = "i-floorfilter-active";
-      const name = levelData.shortName;
+      const name = levelData.levelShortName;
       const item = document.createElement("li");
       const btn = document.createElement("button");
       const activeLevelId = this._getActiveLevelId();

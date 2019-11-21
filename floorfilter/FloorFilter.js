@@ -38,12 +38,15 @@ function(req, declare, lang, _WidgetBase, _TemplatedMixin,
     autoZoomOnStart: true,
     facilitiesUrl: null, // required for 3D
     highlightColor: "#005e95", // or this format [0, 255, 255, 0.66]
+    highlightFacility2D: true,
     layerIdentifiers: null,
+    layerMappings: null,
     levelsUrl: null, // required for 3D
     map: null,
+    showAllFloorPlans2D: true,
     toggleFacilityShells: true,
     watchFacilityClick: true,
-    watchFacilityHover: true,
+    watchFacilityHover: false,
     view: null,
 
     templateString: "<div class='i-floorfilter'></div>",
@@ -75,15 +78,15 @@ function(req, declare, lang, _WidgetBase, _TemplatedMixin,
       const hasV4View2D = (this.view && this.view.type === "2d");
       const hasV4View3D = (this.view && this.view.type === "3d");
 
-      if (!hasV3Map) {
-        console.error(msgPrefix+"a version 3.* 'map' is required.");
-        return;
-      }
-
-      // if (!hasV3Map && !hasV4View2D && !hasV4View3D) {
-      //   console.error(msgPrefix+"a version 3.* 'map', or a version 4.* 'view' is required");
+      // if (!hasV3Map) {
+      //   console.error(msgPrefix+"a version 3.* 'map' is required.");
       //   return;
       // }
+
+      if (!hasV3Map && !hasV4View2D && !hasV4View3D) {
+        console.error(msgPrefix+"a version 3.* 'map', or a version 4.* 'view' is required");
+        return;
+      }
 
       let context = this._context = new Context({
         aiim: null,
@@ -95,6 +98,7 @@ function(req, declare, lang, _WidgetBase, _TemplatedMixin,
         map: this.map,
         msgPrefix: msgPrefix,
         selectionUtil: selectionUtil,
+        showAllFloorPlans2D: this.showAllFloorPlans2D,
         toggleFacilityShells: this.toggleFacilityShells,
         util: util,
         view: this.view,
@@ -123,6 +127,7 @@ function(req, declare, lang, _WidgetBase, _TemplatedMixin,
           context: context
         });
         context.aiim.configureLayerIdentifiers(this.layerIdentifiers);
+        context.aiim.configureLayerMappings(this.layerMappings) ;
         return context.aiim.load(task);
       }).then(() => {
         //console.log("Aiim loaded......");

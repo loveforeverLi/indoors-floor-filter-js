@@ -36,10 +36,13 @@ function(declare) {
       "details": ["Details"],
     },
 
+    layerMappings: null,
+
     FieldNames: {
       FACILITY_ID: "facility_id",
       FACILITY_NAME: "facility_name",
       LEVEL_ID: "level_id",
+      LEVEL_NAME: "level_name",
       LEVEL_NUMBER: "level_number",
       LOCATION_TYPE: "location_type",
       NAME: "name",
@@ -64,6 +67,16 @@ function(declare) {
             return false;
           });
         });
+      }
+    },
+
+    configureLayerMappings: function(configuredMappings) {
+      if (configuredMappings && Array.isArray(configuredMappings)) {
+        this.layerMappings = configuredMappings;
+      } else if (configuredMappings && typeof configuredMappings === "object") {
+        this.layerMappings = [configuredMappings];
+      } else {
+        this.layerMappings = [];
       }
     },
 
@@ -169,6 +182,25 @@ function(declare) {
         }
       });
       return promise;
+    },
+
+    _getLayerMappings: function(task,layer) {
+      let mappings = null;
+      if (Array.isArray(this.layerMappings)) {
+        const title = this._getLayerTitle(task,layer);
+        if (typeof title === "string" && title.length > 0) {
+          const lc = title.toLowerCase();
+          this.layerMappings.some(info => {
+            let v = (info && info.layerTitle);
+            if (typeof v === "string" && lc === v.toLowerCase()) {
+              mappings = info.mappings;
+              return true;
+            }
+            return false;
+          });
+        }
+      }
+      return mappings;
     },
 
     _getLayerTitle: function(task,layer) {
@@ -283,8 +315,10 @@ function(declare) {
         const facilityIdField = util.findField(fields,FieldNames.FACILITY_ID);
         const levelIdField = util.findField(fields,FieldNames.LEVEL_ID);
         const locTypeField = util.findField(fields,FieldNames.LOCATION_TYPE);
-        if (isSites || isFacilities ||
-           (util.isStringField(facilityIdField) && util.isStringField(levelIdField))) {
+        const mappings = this._getLayerMappings(task,layer);
+        const hasFacilityAndLevel = (util.isStringField(facilityIdField) && util.isStringField(levelIdField));
+        const hasMappings = !!mappings;
+        if (isSites || isFacilities || hasFacilityAndLevel || hasMappings) {
           const expression = jsapi.getLayerDefinitionExpression(task,layer);
           const info = {
             id: id,
@@ -293,9 +327,11 @@ function(declare) {
             isSites: isSites,
             isFacilities: isFacilities,
             isLevels: isLevels,
-            isLevelAware: !isSites && !isFacilities,
+            isLevelAware: (hasFacilityAndLevel || hasMappings),
             originalDefinitionExpression: expression,
             requiresFacilityMode: requiresFacilityMode,
+            fields: (fields || []).slice(),
+            mappings: mappings,
             facilityIdField: facilityIdField && facilityIdField.name,
             levelIdField: levelIdField && levelIdField.name,
             locTypeField: null

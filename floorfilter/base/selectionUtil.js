@@ -34,6 +34,14 @@ function() {
       const aiim = task.context.aiim;
       const jsapi = task.context.jsapi;
       const layers = jsapi.getLayers(task);
+      const levels = task.context.levels;
+      if (levels && criteria) {
+        const facilityData = levels.getFacilityData(criteria.facilityId);
+        if (facilityData) {
+          criteria.levelData = facilityData.levelsById[criteria.levelId];
+        }
+      }
+
       let aboveFacilities2D = false, found2D = false;
 
       const makeExpression = (levelAwareInfo) => {
@@ -116,21 +124,26 @@ function() {
 
     _makeWhere_2D: function(task,levelAwareInfo,criteria,aboveFacilities) {
       let where = "";
-      const whereParts = this._makeWhereParts(task,levelAwareInfo,criteria);
-      if (whereParts && whereParts.facilityShellNotEquals) {
-        where = "(" + whereParts.facilityShellNotEquals + ")";
+      const parts = this._makeWhereParts(task,levelAwareInfo,criteria,true,aboveFacilities);
+      if (parts && parts.facilityShellNotEquals) {
+        where = "(" + parts.facilityShellNotEquals + ")";
         return where;
       }
-      if (whereParts && levelAwareInfo.facilityIdField && levelAwareInfo.levelIdField) {
-        const p1 = whereParts.facilityIdEquals;
-        const p2 = whereParts.levelIdEquals;
-        const p3 = whereParts.facilityIdNotEquals;
-        const p4 = whereParts.locTypeOutdoors;
+      if (parts && parts.hasFacilityField && parts.hasLevelField) {
+        const requiresFacilityMode = levelAwareInfo && levelAwareInfo.requiresFacilityMode;
+        const p1 = parts.facilityPart;
+        const p2 = parts.levelPart;
+        const p3 = parts.notFacilityPart;
+        const p4 = parts.outdoorsPart;
+        const p5 = parts.groundFloorPart;
         if (p1 && p2) {
           where = "(" + p1 + " AND " + p2 + ")";
-          if (aboveFacilities) {
-            if (!levelAwareInfo.requiresFacilityMode) {
-              where = "(" + where + " OR " + p3 + ")";
+          if (aboveFacilities && !requiresFacilityMode) {
+            where = "(" + where + " OR " + p3 + ")";
+          } else {
+            if (p5) {
+              const v = "(" + p3 + " AND " + p5 + ")";
+              where = "(" + where + " OR " + v + ")";
             }
           }
           if (p4) {
@@ -145,15 +158,23 @@ function() {
 
     _makeWhere_2DDefault: function(task,levelAwareInfo,aboveFacilities) {
       let where = "";
-      const whereParts = this._makeWhereParts(task,levelAwareInfo,{});
-      if (whereParts && levelAwareInfo.facilityIdField && levelAwareInfo.levelIdField) {
-        where = "1=2";
-        if (aboveFacilities && !levelAwareInfo.requiresFacilityMode) {
-          where = "1=1";
-        } else {
-          if (whereParts.locTypeOutdoors) {
-            where = whereParts.locTypeOutdoors;
+      const parts = this._makeWhereParts(task,levelAwareInfo,{},true,aboveFacilities);
+      if (parts && parts.hasFacilityField && parts.hasLevelField) {
+        const requiresFacilityMode = levelAwareInfo && levelAwareInfo.requiresFacilityMode;
+        if (requiresFacilityMode) {
+          where = "1=2";
+          if (parts.groundFloorPart) {
+            where = parts.groundFloorPart;
           }
+        } else if (!aboveFacilities && parts.groundFloorPart) {
+          where = parts.groundFloorPart;
+          if (parts.outdoorsPart) {
+            where = "(" + where + " OR " + parts.outdoorsPart + ")";
+          }
+        } else if (!aboveFacilities && parts.outdoorsPart) {
+          where = parts.outdoorsPart;
+        } else {
+          where = "";
         }
       }
       return where;
@@ -161,64 +182,217 @@ function() {
 
     _makeWhere_3D: function(task,levelAwareInfo,criteria) {
       let where = "";
-      const whereParts = this._makeWhereParts(task,levelAwareInfo,criteria);
-      if (whereParts && whereParts.facilityShellNotEquals) {
-        where = "(" + whereParts.facilityShellNotEquals + ")";
+      const parts = this._makeWhereParts(task,levelAwareInfo,criteria,false);
+      if (parts && parts.facilityShellNotEquals) {
+        where = "(" + parts.facilityShellNotEquals + ")";
         return where;
       }
-      if (whereParts && levelAwareInfo.facilityIdField && levelAwareInfo.levelIdField) {
-        const p1 = whereParts.facilityIdEquals;
-        const p2 = whereParts.levelIdEquals;
-        const p3 = whereParts.facilityIdNotEquals;
+      if (parts && parts.hasFacilityField && parts.hasLevelField) {
+        const p1 = parts.facilityPart;
+        const p2 = parts.levelPart;
+        const p3 = parts.notFacilityPart;
         if (p1 && p2) {
-          where = "(" + p1 + " AND " + p2 + ")";
-          where += " OR " + p3;
+          where = "(" + p1 + " AND " + p2 + ") OR " + p3;
+        } else {
+          where = "";
         }
       }
       return where;
     },
 
-    _makeWhereParts: function(task,levelAwareInfo,criteria) {
-      const isLevelAware = (levelAwareInfo && levelAwareInfo.isLevelAware);
+    _makeWhereParts: function(task,levelAwareInfo,criteria,is2D,aboveFacilities2D) {
       const isFacilities = (levelAwareInfo && levelAwareInfo.isFacilities);
+      const mappings = (levelAwareInfo && levelAwareInfo.mappings); // TODO
+      const fields = (levelAwareInfo && levelAwareInfo.fields);
       const util = task.context.util;
+      const levels = task.context.levels;
+      const aiim = task.context.aiim;
+      const FieldNames = ((aiim && aiim.FieldNames) || {});
+
+      const chkNum = (v) => {
+        return (typeof v === "number" && isFinite(v));
+      };
+
+      const chkStr = (v) => {
+        return (typeof v === "string" && v.length > 0);
+      };
+
+      const getField = (name,defaultValue) => {
+        let fieldName = defaultValue;
+        if (mappings && mappings.hasOwnProperty(name)) {
+          fieldName = mappings[name];
+        }
+        if (chkStr(fieldName)) return util.findField(fields,fieldName);
+        return;
+      };
+
+      const hasField = (pairs) => {
+        return pairs.some(pair => {
+          return !!pair.field;
+        });
+      };
+
+      const makePart = (field,operator,value) => {
+        if (util.isStringField(field)) {
+          if (typeof value === "string" ) {
+            value = "'" + util.escSqlQuote(value) + "'";
+          }
+        }
+        return "(" + field.name + " " + operator + " " + value + ")";
+      };
+
+      const evaluatePairs = (pairs,operator) => {
+        let part = null;
+        pairs.some(pair => {
+          const field = pair.field;
+          let value = pair.value;
+          let ok = false;
+          if (field) {
+            if (util.isStringField(field)) {
+              if (chkNum(value)) value = "" + value;
+              ok = chkStr(value);
+            } else {
+              ok = chkNum(value);
+            }
+          }
+          //console.log(levelAwareInfo.title,ok,field && field.name,value);
+          if (ok) {
+            part = makePart(field,operator,value);
+            return true;
+          }
+          return false;
+        });
+        return part;
+      };
+
+      const makeFacilityPairs = (levelData) => {
+        let pairs = [{
+          field: getField("facilityIdField",FieldNames.FACILITY_ID),
+          value: levelData && levelData.facilityId
+        }, {
+          field: getField("facilityNameField",FieldNames.FACILITY_NAME),
+          value: levelData && levelData.facilityName
+        }];
+        return pairs;
+      };
+
+      const makeLevelPairs = (levelData) => {
+        let pairs = [{
+          field: getField("levelNumberField",FieldNames.LEVEL_NUMBER),
+          value: levelData && levelData.levelNumber
+        }, {
+          field: getField("levelIdField",FieldNames.LEVEL_ID),
+          value: levelData && levelData.levelId
+        }, {
+          field: getField("levelNameField",FieldNames.LEVEL_NAME),
+          value: levelData && levelData.levelName,
+        }, {
+          field: getField("verticalOrderField",FieldNames.VERTICAL_ORDER),
+          value: levelData && levelData.verticalOrder,
+        }, {
+          field: getField("levelShortNameField",null),
+          value: levelData && levelData.levelShortName
+        }];
+        return pairs;
+      };
+
+      // const parts = {
+      //   facilityShellNotEquals: null,
+      //   facilityIdEquals: null,
+      //   facilityIdNotEquals: null,
+      //   levelIdEquals: null,
+      //   locTypeOutdoors: null,
+      // };
+
       const parts = {
         facilityShellNotEquals: null,
-        facilityIdEquals: null,
-        facilityIdNotEquals: null,
-        levelIdEquals: null,
-        locTypeOutdoors: null
+        hasFacilityField: false,
+        hasLevelField: false,
+        facilityPart: null,
+        levelPart: null,
+        notFacilityPart: null,
+        groundFloorPart: null,
+        outdoorsPart: null
       };
-      let field, id;
 
-      if (isFacilities && task.context.toggleFacilityShells) {
-        id = criteria && criteria.facilityId;
-        field = levelAwareInfo.facilityIdField;
+      let pairs;
+      let facilityId = criteria.facilityId;
+      let levelData = criteria.levelData;
+
+      if (!levelData && chkStr(facilityId) && is2D) {
+        if (levels) levelData = levels.getBaseLevel(facilityId);
+      }
+
+      if (isFacilities && chkStr(facilityId) && task.context.toggleFacilityShells) {
+        let id = criteria && criteria.facilityId;
+        let field = levelAwareInfo.facilityIdField;
         if (typeof id === "string" && id.length > 0 && field) {
           parts.facilityShellNotEquals = "("+field+" <> '"+util.escSqlQuote(id)+"')";
         }
         return parts;
       }
 
-      if (!isLevelAware) return null;
-
-      id = criteria && criteria.facilityId;
-      field = levelAwareInfo.facilityIdField;
-      if (typeof id === "string" && id.length > 0 && field) {
-        parts.facilityIdEquals = "("+field+" = '"+util.escSqlQuote(id)+"')";
-        parts.facilityIdNotEquals = "("+field+" <> '"+util.escSqlQuote(id)+"')";
+      pairs = makeFacilityPairs(levelData);
+      parts.hasFacilityField = hasField(pairs);
+      if (levelData) {
+        parts.facilityPart = evaluatePairs(pairs,"=");
+        parts.notFacilityPart = evaluatePairs(pairs,"<>");
       }
 
-      id = criteria && criteria.levelId;
-      field = levelAwareInfo.levelIdField;
-      if (typeof id === "string" && id.length > 0 && field) {
-        parts.levelIdEquals = "("+field+" = '"+util.escSqlQuote(id)+"')";
+      pairs = makeLevelPairs(levelData);
+      parts.hasLevelField = hasField(pairs);
+      if (levelData) {
+        parts.levelPart = evaluatePairs(pairs,"=");
       }
 
-      field = levelAwareInfo.locTypeField;
-      if (field) {
-        parts.locTypeOutdoors = "("+field+" = 0)";
+      pairs = [{
+        field: getField("locTypeField",FieldNames.LOCATION_TYPE),
+        value: 0
+      }];
+      parts.outdoorsPart = evaluatePairs(pairs,"=");
+
+      if (is2D && task.context.showAllFloorPlans2D) {
+        const groundVO = 0;
+        pairs = [{
+          field: getField("verticalOrderField",FieldNames.VERTICAL_ORDER),
+          value: groundVO
+        }];
+        parts.groundFloorPart = evaluatePairs(pairs,"=");
+        if (!parts.groundFloorPart) {
+          if (parts.hasFacilityField && parts.hasLevelField) {
+            if (!aboveFacilities2D) {
+              parts.groundFloorPart = "(1=2)";
+              const considerAllFacilities = true;
+              const exp = [];
+              const facilities = levels && levels.getFacilities();
+              if (considerAllFacilities && facilities) {
+                facilities.forEach(facilityData => {
+                  let data = facilityData.levelsByVO[groundVO];
+                  let ok = !!data;
+                  if (data && levelData && data.facilityId === levelData.facilityId) {
+                    ok = false;
+                  }
+                  if (data && ok) {
+                    let pairs1 = makeFacilityPairs(data);
+                    let pairs2 = makeLevelPairs(data);
+                    let part1 = evaluatePairs(pairs1,"=");
+                    let part2 = evaluatePairs(pairs2,"=");
+                    if (part1 && part2) {
+                      let p = "(" + part1 + " AND " + part2 + ")";
+                      exp.push(p);
+                    }
+                  }
+                });
+              }
+              if (exp.length > 0) {
+                let p = "(" + exp.join(" OR ") + ")";
+                parts.groundFloorPart = p;
+              }
+            }
+          }
+        }
       }
+
       return parts;
     },
 
@@ -267,7 +441,7 @@ function() {
     _setLayerDefinitionExpression: function(task,levelAwareInfo,layer,expression) {
       const jsapi = task.context.jsapi;
       jsapi.setLayerDefinitionExpression(task,layer,expression);
-      //console.log("setDefExpr",levelAwareInfo.title,expression);
+      //console.log("setDefExpr",levelAwareInfo && levelAwareInfo.title,expression);
     },
 
   };

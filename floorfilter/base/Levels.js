@@ -25,6 +25,11 @@ function(declare) {
       Object.assign(this,props);
     },
 
+    getBaseLevel: function(facilityId) {
+      const facilityData = this.getFacilityData(facilityId);
+      return facilityData && facilityData.baseLevel;
+    },
+
     getBaseLevelId: function(facilityId) {
       const facilityData = this.getFacilityData(facilityId);
       const baseLevel = facilityData && facilityData.baseLevel;
@@ -32,6 +37,10 @@ function(declare) {
         return baseLevel.levelId;
       }
       return null;
+    },
+
+    getFacilities: function() {
+      return this.data && this.data.facilities;
     },
 
     getFacilityData: function(facilityId) {
@@ -84,7 +93,9 @@ function(declare) {
         const facilityIdField = FieldNames.FACILITY_ID;
         const facilityNameField = FieldNames.FACILITY_NAME;
         const levelIdField = FieldNames.LEVEL_ID;
-        const shortNameField = FieldNames.NAME_SHORT;
+        const levelNameField = FieldNames.NAME;
+        const levelNumberField = FieldNames.LEVEL_NUMBER;
+        const levelShortNameField = FieldNames.NAME_SHORT;
         const voField = FieldNames.VERTICAL_ORDER;
         const queryProps = {
           outFields: ["*"],
@@ -102,7 +113,9 @@ function(declare) {
                 const facilityId = util.getAttributeValue(attributes,facilityIdField);
                 const facilityName = util.getAttributeValue(attributes,facilityNameField);
                 const levelId = util.getAttributeValue(attributes,levelIdField);
-                const shortName = util.getAttributeValue(feature.attributes,shortNameField);
+                const levelName = util.getAttributeValue(attributes,levelNameField);
+                const levelNumber = util.getAttributeValue(attributes,levelNumberField);
+                const levelShortName = util.getAttributeValue(feature.attributes,levelShortNameField);
                 const vo = util.getAttributeValue(attributes,voField);
                 if (typeof facilityId === "string" && facilityId.length > 0) {
 
@@ -115,6 +128,7 @@ function(declare) {
                       facilityName: facilityName,
                       levels: [],
                       levelsById: {},
+                      levelsByVO: {},
                       baseLevel: null,
                       baseVO: null
                     };
@@ -123,12 +137,17 @@ function(declare) {
                   }
 
                   const levelData = {
+                    facilityId: facilityId,
+                    facilityName: facilityName,
                     levelId: levelId,
-                    shortName: shortName,
+                    levelName: levelName,
+                    levelNumber: levelNumber,
+                    levelShortName: levelShortName,
                     verticalOrder: vo
                   }
                   facilityData.levels.push(levelData);
                   facilityData.levelsById[levelId] = levelData;
+                  facilityData.levelsByVO[vo] = levelData;
 
                   if (typeof vo === "number" && isFinite(vo)) {
                     const baseVO = facilityData.baseVO;
