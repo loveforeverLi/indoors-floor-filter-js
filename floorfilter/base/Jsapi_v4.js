@@ -15,12 +15,15 @@
 define([
   "dojo/_base/declare",
   "./Jsapi",
+  "esri/Graphic",
   "esri/geometry/Extent",
   "esri/geometry/geometryEngine",
+  "esri/geometry/Polyline",
   "esri/layers/GraphicsLayer",
 	"esri/tasks/QueryTask",
   "esri/tasks/support/Query"],
-function(declare, Jsapi, Extent, geometryEngine, GraphicsLayer, QueryTask, Query) {
+function(declare, Jsapi, Graphic, Extent, geometryEngine, Polyline, GraphicsLayer,
+  QueryTask, Query) {
 
   const Jsapi_v4 = declare([Jsapi], {
 
@@ -28,18 +31,58 @@ function(declare, Jsapi, Extent, geometryEngine, GraphicsLayer, QueryTask, Query
 
     _handles: null,
     _highlightGraphicsLayer: null,
-    _highlightedFacilityId: null,
+    _highlightFacilityId: null,
+    _hoverGraphicsLayer: null,
+    _hoverFacilityId: null,
 
     constructor: function(props) {
       Object.assign(this,props);
       this._handles = [];
     },
 
+    addFacilityHighlight: function(task,facility,facilityId) {
+      if (!facility || !facility.geometry) {
+        this.clearFacilityHighlight(task);
+        return;
+      }
+      if (!this._highlightGraphicsLayer) {
+        const util = task.context.util;
+        this._highlightGraphicsLayer = new GraphicsLayer({
+          id: util.randomId() + "-floorfilter-facility",
+          listMode: "hide"
+        });
+        task.view.map.add(this._highlightGraphicsLayer);
+      }
+      const symbol = {
+        type: "simple-line",
+        color: task.context.highlightColor,
+        width: "2.4",
+        style: "solid"
+      };
+      const polyline = this._polygonToPolyline(facility.geometry);
+      const graphic = new Graphic({
+        geometry: polyline,
+        attributes: facility.attributes,
+        symbol: symbol,
+        visible: true
+      });
+      this.clearFacilityHighlight(task);
+      this._highlightGraphicsLayer.add(graphic);
+      this._highlightFacilityId = facilityId;
+    },
+
     clearFacilityHighlight: function(task) {
       if (this._highlightGraphicsLayer) {
         this._highlightGraphicsLayer.removeAll();
       }
-      this._highlightedFacilityId = null;
+      this._highlightFacilityId = null;
+    },
+
+    clearFacilityHoverHighlight: function(task) {
+      if (this._hoverGraphicsLayer) {
+        this._hoverGraphicsLayer.removeAll();
+      }
+      this._hoverFacilityId = null;
     },
 
     destroy: function() {
@@ -393,6 +436,16 @@ function(declare, Jsapi, Extent, geometryEngine, GraphicsLayer, QueryTask, Query
       return promise;
     },
 
+    _polygonToPolyline: function(polygon) {
+      const polyline = new Polyline({
+        hasZ: polygon.hasZ,
+        hasM: polygon.hasM,
+        paths: polygon.rings,
+        spatialReference: polygon.spatialReference
+      });
+      return polyline;
+    },
+
     _watchFacilities2D: function(view,facilities) {
       const context = this.context;
       const aiim = context.aiim;
@@ -401,14 +454,14 @@ function(declare, Jsapi, Extent, geometryEngine, GraphicsLayer, QueryTask, Query
       const highlightColor = context.highlightColor;
       const handles = this._handles;
 
-      if (!this._highlightGraphicsLayer) {
-        this._highlightGraphicsLayer = new GraphicsLayer({
-          id: util.randomId() + "-floorfilter",
+      if (!this._hoverGraphicsLayer) {
+        this._hoverGraphicsLayer = new GraphicsLayer({
+          id: util.randomId() + "-floorfilter-hover",
           listMode: "hide"
         });
-        view.map.add(this._highlightGraphicsLayer);
+        view.map.add(this._hoverGraphicsLayer);
       }
-      const gfxLayerId = this._highlightGraphicsLayer.id;
+      const gfxLayerId = this._hoverGraphicsLayer.id;
 
       const highlightSymbol = {
         "type": "simple-fill",
@@ -424,7 +477,7 @@ function(declare, Jsapi, Extent, geometryEngine, GraphicsLayer, QueryTask, Query
         if (facility) {
           const status = getStatus(facility,true);
           if (status.facilityId && !status.isActive) {
-            this.clearFacilityHighlight();
+            this.clearFacilityHoverHighlight();
             if (wait) {
               setTimeout(() => {
                 facilities.activate(facility,status.facilityId);
@@ -440,14 +493,14 @@ function(declare, Jsapi, Extent, geometryEngine, GraphicsLayer, QueryTask, Query
         if (facility) {
           const status = getStatus(facility);
           if (status.facilityId && !status.isActive) {
-            if (this._highlightedFacilityId !== status.facilityId) {
+            if (this._hoverFacilityId !== status.facilityId) {
               highlight(facility,status.facilityId);
             }
           } else {
-            this.clearFacilityHighlight();
+            this.clearFacilityHoverHighlight();
           }
         } else {
-          this.clearFacilityHighlight();
+          this.clearFacilityHoverHighlight();
         }
       };
 
@@ -480,9 +533,9 @@ function(declare, Jsapi, Extent, geometryEngine, GraphicsLayer, QueryTask, Query
         graphic.sourceLayer = null;
         graphic.xtnFacilityId = facilityId;
         graphic.symbol = highlightSymbol;
-        this.clearFacilityHighlight();
-        this._highlightGraphicsLayer.add(graphic);
-        this._highlightedFacilityId = facilityId;
+        this.clearFacilityHoverHighlight();
+        this._hoverGraphicsLayer.add(graphic);
+        this._hoverFacilityId = facilityId;
       };
 
       const isVisible = (info) => {
@@ -533,7 +586,7 @@ function(declare, Jsapi, Extent, geometryEngine, GraphicsLayer, QueryTask, Query
                   return;
                 }
               }
-              this.clearFacilityHighlight();
+              this.clearFacilityHoverHighlight();
             });
           }
         }));
@@ -541,7 +594,7 @@ function(declare, Jsapi, Extent, geometryEngine, GraphicsLayer, QueryTask, Query
 
       if (context.watchFacilityClick || context.watchFacilityHover) {
         handles.push(view.on("pointer-leave",evt => {
-          this.clearFacilityHighlight();
+          this.clearFacilityHoverHighlight();
         }));
       }
 

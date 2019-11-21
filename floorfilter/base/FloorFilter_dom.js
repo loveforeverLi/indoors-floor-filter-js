@@ -79,6 +79,7 @@ function(declare) {
         this._updateFacilitySelect();
         this._renderLevels();
         context.selectionUtil.clearSelectedFacilityLevel(task);
+        context.jsapi.clearFacilityHighlight(task);
       }
       this._updateClearButton();
       this._scrollIntoView();
@@ -108,6 +109,23 @@ function(declare) {
       const facilityId = this._getActiveFacilityId();
       const facilityData = this._getFacilityData(facilityId);
       return !!facilityData;
+    },
+
+    _highlightFacility: function(facilityId) {
+      const context = this.context;
+      if (context.highlightFacility2D && context.facilities) {
+        const facility = context.facilities.findFeatureById(facilityId);
+        const task = {
+          context: context,
+          map: context.map,
+          view: context.view
+        };
+        if (facility) {
+          context.jsapi.addFacilityHighlight(task,facility,facilityId);
+        } else {
+          context.jsapi.clearFacilityHighlight(task);
+        }
+      }
     },
 
     _makeTestLevels: function(facilityId,levels) {
@@ -369,6 +387,7 @@ function(declare) {
         this._renderLevels();
         this._updateClearButton();
         this._scrollIntoView();
+        this._highlightFacility(facilityId);
       }
     },
 

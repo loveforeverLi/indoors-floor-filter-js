@@ -16,7 +16,9 @@ define([
   "dojo/_base/declare",
   "./Jsapi",
   "esri/Color",
+  "esri/graphic",
   "esri/geometry/geometryEngine",
+  "esri/geometry/Polyline",
   "esri/layers/FeatureLayer",
   "esri/layers/GraphicsLayer",
   "esri/symbols/SimpleLineSymbol",
@@ -24,8 +26,8 @@ define([
 	"esri/tasks/QueryTask",
   "esri/tasks/query"
  ],
-function(declare, Jsapi, Color, geometryEngine, FeatureLayer, GraphicsLayer,
-  SimpleLineSymbol,SimpleFillSymbol, QueryTask, Query) {
+function(declare, Jsapi, Color, Graphic, geometryEngine, Polyline, FeatureLayer,
+  GraphicsLayer, SimpleLineSymbol, SimpleFillSymbol, QueryTask, Query) {
 
   const Jsapi_v3 = declare([Jsapi], {
 
@@ -33,18 +35,51 @@ function(declare, Jsapi, Color, geometryEngine, FeatureLayer, GraphicsLayer,
 
     _handles: null,
     _highlightGraphicsLayer: null,
-    _highlightedFacilityId: null,
+    _highlightFacilityId: null,
+    _hoverGraphicsLayer: null,
+    _hoverFacilityId: null,
 
     constructor: function(props) {
       Object.assign(this,props);
       this._handles = [];
     },
 
+    addFacilityHighlight: function(task,facility,facilityId) {
+      if (!facility || !facility.geometry) {
+        this.clearFacilityHighlight(task);
+        return;
+      }
+      if (!this._highlightGraphicsLayer) {
+        const util = task.context.util;
+        this._highlightGraphicsLayer = new GraphicsLayer({
+          id: util.randomId() + "-floorfilter-facility"
+        });
+        task.map.addLayer(this._highlightGraphicsLayer);
+      }
+      const symbol = new SimpleLineSymbol(
+        SimpleLineSymbol.STYLE_SOLID,
+        new Color(task.context.highlightColor),
+        2.4
+      );
+      const polyline = this._polygonToPolyline(facility.geometry);
+      const graphic = new Graphic(polyline,symbol,facility.attributes);
+      this.clearFacilityHighlight(task);
+      this._highlightGraphicsLayer.add(graphic);
+      this._highlightFacilityId = facilityId;
+    },
+
     clearFacilityHighlight: function(task) {
       if (this._highlightGraphicsLayer) {
         this._highlightGraphicsLayer.clear();
       }
-      this._highlightedFacilityId = null;
+      this._highlightFacilityId = null;
+    },
+
+    clearFacilityHoverHighlight: function(task) {
+      if (this._hoverGraphicsLayer) {
+        this._hoverGraphicsLayer.clear();
+      }
+      this._hoverFacilityId = null;
     },
 
     destroy: function() {
@@ -316,6 +351,14 @@ function(declare, Jsapi, Color, geometryEngine, FeatureLayer, GraphicsLayer,
       return facility;
     },
 
+    _polygonToPolyline: function(polygon) {
+      const polyline = new Polyline({
+        paths: polygon.rings,
+        spatialReference: polygon.spatialReference
+      });
+      return polyline;
+    },
+
     _watchFacilities: function(map,facilities) {
       const context = this.context;
       const aiim = context.aiim;
@@ -324,11 +367,11 @@ function(declare, Jsapi, Color, geometryEngine, FeatureLayer, GraphicsLayer,
       const highlightColor = context.highlightColor;
       const handles = this._handles;
 
-      if (!this._highlightGraphicsLayer) {
-        this._highlightGraphicsLayer = new GraphicsLayer({
-          id: util.randomId() + "-floorfilter"
+      if (!this._hoverGraphicsLayer) {
+        this._hoverGraphicsLayer = new GraphicsLayer({
+          id: util.randomId() + "-floorfilter-hover"
         });
-        map.addLayer(this._highlightGraphicsLayer);
+        map.addLayer(this._hoverGraphicsLayer);
       }
 
       const clearPopupFeature = (facility) => {
@@ -391,9 +434,9 @@ function(declare, Jsapi, Color, geometryEngine, FeatureLayer, GraphicsLayer,
       const highlight = (facility,facilityId) => {
         const graphic = facility.clone();
         graphic.symbol = highlightSymbol;
-        this.clearFacilityHighlight();
-        this._highlightGraphicsLayer.add(graphic);
-        this._highlightedFacilityId = facilityId;
+        this.clearFacilityHoverHighlight();
+        this._hoverGraphicsLayer.add(graphic);
+        this._hoverFacilityId = facilityId;
       };
 
       const isVisible = (info) => {
@@ -426,21 +469,21 @@ function(declare, Jsapi, Color, geometryEngine, FeatureLayer, GraphicsLayer,
           if (facility) {
             const status = getStatus(facility);
             if (status.facilityId && !status.isActive) {
-              if (this._highlightedFacilityId !== status.facilityId) {
+              if (this._hoverFacilityId !== status.facilityId) {
                 highlight(facility,status.facilityId);
               }
             } else {
-              this.clearFacilityHighlight();
+              this.clearFacilityHoverHighlight();
             }
           } else {
-            this.clearFacilityHighlight();
+            this.clearFacilityHoverHighlight();
           }
         }));
       }
 
       if (context.watchFacilityClick || context.watchFacilityHover) {
         handles.push(map.on("mouse-out",evt => {
-          this.clearFacilityHighlight();
+          this.clearFacilityHoverHighlight();
         }));
       }
 
@@ -451,7 +494,7 @@ function(declare, Jsapi, Color, geometryEngine, FeatureLayer, GraphicsLayer,
             const status = getStatus(facility);
             if (status.facilityId && !status.isActive) {
               facilities.activate(facility,status.facilityId);
-              this.clearFacilityHighlight();
+              this.clearFacilityHoverHighlight();
               clearPopupFeature(facility);
             }
           }

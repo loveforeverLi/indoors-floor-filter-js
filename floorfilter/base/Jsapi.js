@@ -21,8 +21,16 @@ function(declare) {
     isV3: false,
     isV4: false,
 
+    addFacilityHighlight: function(task,facility,facilityId) {
+      throw new Error("Jsapi::addFacilityHighlight must be inplemented by sub-class.");
+    },
+
     clearFacilityHighlight: function(task) {
       throw new Error("Jsapi::clearFacilityHighlight must be inplemented by sub-class.");
+    },
+
+    clearFacilityHoverHighlight: function(task) {
+      throw new Error("Jsapi::clearFacilityHoverHighlight must be inplemented by sub-class.");
     },
 
     destroy: function() {

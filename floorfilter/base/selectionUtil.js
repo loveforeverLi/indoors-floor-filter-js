@@ -18,12 +18,12 @@ function() {
   const selectionUtil = {
 
     clearSelectedFacilityLevel: function(task) {
-      task.context.jsapi.clearFacilityHighlight(task);
+      task.context.jsapi.clearFacilityHoverHighlight(task);
       this._applyFacilityLevelExpressions(task,{},true);
     },
 
     selectFacilityLevel: function(task,criteria) {
-      task.context.jsapi.clearFacilityHighlight(task);
+      task.context.jsapi.clearFacilityHoverHighlight(task);
       this._applyFacilityLevelExpressions(task,criteria,false);
     },
 

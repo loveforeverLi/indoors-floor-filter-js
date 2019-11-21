@@ -29,6 +29,10 @@ function(declare) {
 
     activate: function(feature,facilityId) {},
 
+    findFeatureById: function(facilityId) {
+      return this._findFeatureById({},facilityId);
+    },
+
     findFeatureByObjectId: function(objectId) {
       return this._findFeatureByObjectId(objectId);
     },
