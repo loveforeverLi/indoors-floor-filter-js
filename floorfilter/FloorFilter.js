@@ -49,6 +49,9 @@ function(req, declare, lang, _WidgetBase, _TemplatedMixin,
     watchFacilityHover: null,
     view: null,
 
+    _context: null,
+    _floorFilter_dom: null,
+
     templateString: "<div class='i-floorfilter'></div>",
 
     postCreate: function() {
@@ -66,6 +69,16 @@ function(req, declare, lang, _WidgetBase, _TemplatedMixin,
       }
       this.inherited(arguments);
     },
+
+    onChange: function(props) {},
+
+    setFacility: function(params) {
+      if (this._floorFilter_dom) {
+        this._floorFilter_dom._setFacility(params);
+      }
+    },
+
+    /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
     _init: function() {
 
@@ -115,10 +128,13 @@ function(req, declare, lang, _WidgetBase, _TemplatedMixin,
         view: context.view,
       };
 
-      let floorFilter_dom = new FloorFilter_dom({
+      let floorFilter_dom = this._floorFilter_dom = new FloorFilter_dom({
         context: context,
         domNode: this.domNode
       });
+      floorFilter_dom._onChange = (props) => {
+        this.onChange(props);
+      };
 
       let hasFatal = false;
       this._loadContextJsapi(context).then(() => {

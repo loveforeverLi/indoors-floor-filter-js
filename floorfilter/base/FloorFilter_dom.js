@@ -80,6 +80,10 @@ function(declare) {
         this._renderLevels();
         context.selectionUtil.clearSelectedFacilityLevel(task);
         context.jsapi.clearFacilityHighlight(task);
+        this._onChange({
+          facilityId: null,
+          levelId: null
+        });
       }
       this._updateClearButton();
       this._scrollIntoView();
@@ -149,6 +153,8 @@ function(declare) {
       }
       return levels;
     },
+
+    _onChange: function(props) {},
 
     _render: function() {
       const domNode = this.domNode;
@@ -370,11 +376,17 @@ function(declare) {
         levelId: this._getActiveLevelId()
       };
       context.selectionUtil.selectFacilityLevel(task,criteria);
+      this._onChange({
+        facilityId: criteria.facilityId,
+        levelId: criteria.levelId
+      });
     },
 
-    _setActiveFacilityId: function(facilityId,apply,fromFacilitySelect) {
+    _setActiveFacilityId: function(facilityId,apply,fromFacilitySelect,levelData) {
       let levelId = null;
-      if (!this.context.jsapi.is3D()) {
+      if (levelData && levelData.levelId) {
+        levelId = levelData.levelId;
+      } else if (!this.context.jsapi.is3D()) {
         levelId = this.context.levels.getBaseLevelId(facilityId);
       }
       const activeFacilityInfo = this._getActiveFacilityInfo();
@@ -388,6 +400,62 @@ function(declare) {
         this._updateClearButton();
         this._scrollIntoView();
         this._highlightFacility(facilityId);
+      }
+    },
+
+    _setFacility: function(params) {
+      const levels = this.context.levels;
+      const facilities = levels && levels.getFacilities();
+      if (params && facilities) {
+        const facilityId = params.facilityId;
+        const facilityName = params.facilityName;
+        const levelId = params.levelId;
+        const levelName = params.levelName;
+        const levelShortName = params.levelShortName;
+        const levelNumber = params.levelNumber;
+        const verticalOrder = params.verticalOrder;
+        const hasFacilityId = (typeof facilityId === "string");
+        const hasFacilityName = (typeof facilityName === "string");
+        const hasLevelId = (typeof levelId === "string");
+        const hasLevelName = (typeof levelName === "string");
+        const hasLevelShortName = (typeof levelShortName === "string");
+        const hasLevelNumber = (typeof levelNumber === "number");
+        const hasVerticalOrder = (typeof verticalOrder === "number");
+        let facilityData, levelData;
+        facilities.some(data => {
+          let matched = false;
+          if (hasFacilityId) {
+            matched = (facilityId === data.facilityId);
+          } else if (hasFacilityName) {
+            matched = (facilityName === data.facilityName);
+          }
+          if (matched) facilityData = data;
+          return matched;
+        });
+        if (facilityData) {
+          if (facilityData.levels) {
+            facilityData.levels.some(data => {
+              let matched = false;
+              if (hasLevelId) {
+                matched = (levelId === data.levelId);
+              } else if (hasLevelName) {
+                matched = (levelName === data.levelName);
+              } else if (hasLevelShortName) {
+                matched = (levelShortName === data.levelShortName);
+              } else if (hasLevelNumber) {
+                matched = (levelNumber === data.levelNumber);
+              } else if (hasVerticalOrder) {
+                matched = (verticalOrder === data.verticalOrder);
+              }
+              if (matched) levelData = data;
+              return matched;
+            });
+          }
+          if (!levelData) levelData = levels.getBaseLevel(facilityData.facilityId);
+          if (levelData) {
+            this._setActiveFacilityId(levelData.facilityId,true,false,levelData);
+          }
+        }
       }
     },
 
