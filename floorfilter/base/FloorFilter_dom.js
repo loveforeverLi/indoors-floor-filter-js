@@ -89,6 +89,60 @@ function(declare) {
       this._scrollIntoView();
     },
 
+    _determineLevelDataFromParams: function(params) {
+      let facilityData, levelData;
+      const levels = this.context.levels;
+      const facilities = levels && levels.getFacilities();
+      if (params && facilities) {
+        const facilityId = params.facilityId;
+        const facilityName = params.facilityName;
+        const levelId = params.levelId;
+        const levelName = params.levelName;
+        const levelShortName = params.levelShortName;
+        const levelNumber = params.levelNumber;
+        const verticalOrder = params.verticalOrder;
+        const hasFacilityId = (typeof facilityId === "string");
+        const hasFacilityName = (typeof facilityName === "string");
+        const hasLevelId = (typeof levelId === "string");
+        const hasLevelName = (typeof levelName === "string");
+        const hasLevelShortName = (typeof levelShortName === "string");
+        const hasLevelNumber = (typeof levelNumber === "number");
+        const hasVerticalOrder = (typeof verticalOrder === "number");
+        facilities.some(data => {
+          let matched = false;
+          if (hasFacilityId) {
+            matched = (facilityId === data.facilityId);
+          } else if (hasFacilityName) {
+            matched = (facilityName === data.facilityName);
+          }
+          if (matched) facilityData = data;
+          return matched;
+        });
+        if (facilityData) {
+          if (facilityData.levels) {
+            facilityData.levels.some(data => {
+              let matched = false;
+              if (hasLevelId) {
+                matched = (levelId === data.levelId);
+              } else if (hasLevelName) {
+                matched = (levelName === data.levelName);
+              } else if (hasLevelShortName) {
+                matched = (levelShortName === data.levelShortName);
+              } else if (hasLevelNumber) {
+                matched = (levelNumber === data.levelNumber);
+              } else if (hasVerticalOrder) {
+                matched = (verticalOrder === data.verticalOrder);
+              }
+              if (matched) levelData = data;
+              return matched;
+            });
+          }
+          if (!levelData) levelData = levels.getBaseLevel(facilityData.facilityId);
+        }
+      }
+      return levelData;
+    },
+
     _getActiveFacilityId: function() {
       return this._getActiveFacilityInfo().facilityId;
     },
@@ -404,58 +458,9 @@ function(declare) {
     },
 
     _setFacility: function(params) {
-      const levels = this.context.levels;
-      const facilities = levels && levels.getFacilities();
-      if (params && facilities) {
-        const facilityId = params.facilityId;
-        const facilityName = params.facilityName;
-        const levelId = params.levelId;
-        const levelName = params.levelName;
-        const levelShortName = params.levelShortName;
-        const levelNumber = params.levelNumber;
-        const verticalOrder = params.verticalOrder;
-        const hasFacilityId = (typeof facilityId === "string");
-        const hasFacilityName = (typeof facilityName === "string");
-        const hasLevelId = (typeof levelId === "string");
-        const hasLevelName = (typeof levelName === "string");
-        const hasLevelShortName = (typeof levelShortName === "string");
-        const hasLevelNumber = (typeof levelNumber === "number");
-        const hasVerticalOrder = (typeof verticalOrder === "number");
-        let facilityData, levelData;
-        facilities.some(data => {
-          let matched = false;
-          if (hasFacilityId) {
-            matched = (facilityId === data.facilityId);
-          } else if (hasFacilityName) {
-            matched = (facilityName === data.facilityName);
-          }
-          if (matched) facilityData = data;
-          return matched;
-        });
-        if (facilityData) {
-          if (facilityData.levels) {
-            facilityData.levels.some(data => {
-              let matched = false;
-              if (hasLevelId) {
-                matched = (levelId === data.levelId);
-              } else if (hasLevelName) {
-                matched = (levelName === data.levelName);
-              } else if (hasLevelShortName) {
-                matched = (levelShortName === data.levelShortName);
-              } else if (hasLevelNumber) {
-                matched = (levelNumber === data.levelNumber);
-              } else if (hasVerticalOrder) {
-                matched = (verticalOrder === data.verticalOrder);
-              }
-              if (matched) levelData = data;
-              return matched;
-            });
-          }
-          if (!levelData) levelData = levels.getBaseLevel(facilityData.facilityId);
-          if (levelData) {
-            this._setActiveFacilityId(levelData.facilityId,true,false,levelData);
-          }
-        }
+      const levelData = this._determineLevelDataFromParams(params);
+      if (levelData) {
+        this._setActiveFacilityId(levelData.facilityId,true,false,levelData);
       }
     },
 
